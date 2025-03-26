@@ -1,103 +1,91 @@
-import React, { useState, useEffect } from 'react'
+import { useEffect, useState } from "react";
 
 const MemoryGame = () => {
   const [gridSize, setGridSize] = useState(4);
   const [cards, setCards] = useState([]);
-  const [flipped, setFlipped] = useState([]);
-  const [matched, setMatched] = useState([]);
-  const [disabled, setDisabled] = useState(false);
-  const [won, setWon] = useState(false);
-  const [moves, setMoves] = useState(0);
 
-  // Generate unique card pairs
-  const generateCards = (size) => {
-    const totalCards = size * size;
-    const uniquePairs = totalCards / 2;
-    const cardValues = Array.from({ length: uniquePairs }, (_, i) => i + 1);
-    
-    // Create pairs and shuffle
-    const shuffledCards = [...cardValues, ...cardValues]
-      .sort(() => Math.random() - 0.5)
-      .map((value, index) => ({
-        id: index,
-        value,
-        flipped: false
-      }));
-    
-    return shuffledCards;
+  const [flipped, setFlipped] = useState([]);
+  const [solved, setSolved] = useState([]);
+  const [disabled, setDisabled] = useState(false);
+
+  const [won, setWon] = useState(false);
+
+  const handleGridSizeChange = (e) => {
+    const size = parseInt(e.target.value);
+    if (size >= 2 && size <= 10) setGridSize(size);
   };
 
-  // Handle grid size change
-  const handleGridSizeChange = (e) => {
-    const newSize = parseInt(e.target.value);
-    if (newSize >= 2 && newSize <= 10) {
-      setGridSize(newSize);
-      resetGame(newSize);
+  const initializeGame = () => {
+    const totalCards = gridSize * gridSize; // 16
+    const pairCount = Math.floor(totalCards / 2); // 8
+    const numbers = [...Array(pairCount).keys()].map((n) => n + 1);
+    const shuffledCards = [...numbers, ...numbers]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, totalCards)
+      .map((number, index) => ({ id: index, number }));
+
+    setCards(shuffledCards);
+    setFlipped([]);
+    setSolved([]);
+    setWon(false);
+  };
+
+  useEffect(() => {
+    initializeGame();
+  }, [gridSize]);
+
+  const checkMatch = (secondId) => {
+    const [firstId] = flipped;
+    if (cards[firstId].number === cards[secondId].number) {
+      setSolved([...solved, firstId, secondId]);
+      setFlipped([]);
+      setDisabled(false);
+    } else {
+      setTimeout(() => {
+        setFlipped([]);
+        setDisabled(false);
+      }, 1000);
     }
   };
 
-  // Reset game 
-  const resetGame = (size = gridSize) => {
-    setCards(generateCards(size));
-    setFlipped([]);
-    setMatched([]);
-    setDisabled(false);
-    setWon(false);
-    setMoves(0);
-  };
+  const handleClick = (id) => {
+    if (disabled || won) return;
 
-  // Handle card click
-  const handleCardClick = (clickedCard) => {
-    // Prevent interactions if game is disabled or card is already matched/flipped
-    if (disabled || flipped.includes(clickedCard.id) || matched.includes(clickedCard.id)) {
+    if (flipped.length === 0) {
+      setFlipped([id]);
       return;
     }
 
-    const newFlipped = [...flipped, clickedCard.id];
-    setFlipped(newFlipped);
-    setMoves(prevMoves => prevMoves + 1);
-
-    // If two cards are flipped, check for match
-    if (newFlipped.length === 2) {
+    if (flipped.length === 1) {
       setDisabled(true);
-      const [firstCardId, secondCardId] = newFlipped;
-      const firstCard = cards.find(card => card.id === firstCardId);
-      const secondCard = cards.find(card => card.id === secondCardId);
-
-      // Check if cards match
-      if (firstCard.value === secondCard.value) {
-        setMatched(prev => [...prev, firstCardId, secondCardId]);
-        setDisabled(false);
+      if (id !== flipped[0]) {
+        setFlipped([...flipped, id]);
+        // check match logic
+        checkMatch(id);
       } else {
-        // Unflip cards after a short delay
-        setTimeout(() => {
-          setFlipped([]);
-          setDisabled(false);
-        }, 1000);
+        setFlipped([]);
+        setDisabled(false);
       }
     }
   };
 
-  // Check for win condition
-  useEffect(() => {
-    if (matched.length === cards.length && cards.length > 0) {
-      setWon(true);
-      setDisabled(true);
-    }
-  }, [matched, cards]);
+  const isFlipped = (id) => flipped.includes(id) || solved.includes(id);
+  const isSolved = (id) => solved.includes(id);
 
-  // Initialize cards when component mounts or grid size changes
   useEffect(() => {
-    resetGame();
-  }, [gridSize]);
+    if (solved.length === cards.length && cards.length > 0) {
+      setWon(true);
+    }
+  }, [solved, cards]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-grey-100 p-4">
       <h1 className="text-3xl font-bold mb-6">Memory Game</h1>
-      
-      {/* Grid Size Input */}
+      {/* Input */}
       <div className="mb-4">
-        <label htmlFor="gridSize" className="mr-2">Grid Size (max 10):</label>
+        <label htmlFor="gridSize" className="mr-2">
+          Grid Size: (max 10)
+        </label>
         <input
           type="number"
           id="gridSize"
@@ -110,62 +98,46 @@ const MemoryGame = () => {
       </div>
 
       {/* Game Board */}
-      <div 
-        className="grid gap-2"
-        style={{ 
-          gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-          width: `${gridSize * 4}rem`, // Adjust width based on grid size
+      <div
+        className={`grid gap-2 mb-4`}
+        style={{
+          gridTemplateColumns: `repeat(${gridSize}, minmax(0,1fr))`,
+          width: `min(100%, ${gridSize * 5.5}rem)`,
         }}
       >
-        {cards.map((card) => (
-          <div 
-            key={card.id}
-            onClick={() => handleCardClick(card)}
-            className={`
-              w-16 h-16 flex items-center justify-center 
-              border-2 rounded-lg cursor-pointer transition-all duration-300
-              ${flipped.includes(card.id) || matched.includes(card.id) 
-                ? 'bg-blue-500 text-white' 
-                : 'bg-gray-300 hover:bg-gray-400'}
-              ${matched.includes(card.id) ? 'opacity-50' : ''}
-            `}
-          >
-            {(flipped.includes(card.id) || matched.includes(card.id)) 
-              ? card.value 
-              : '?'}
-          </div>
-        ))}
+        {cards.map((card) => {
+          return (
+            <div
+              key={card.id}
+              onClick={() => handleClick(card.id)}
+              className={`aspect-square flex items-center justify-center text-xl font-bold rounded-lg cursor-pointer transition-all duration-300  ${
+                isFlipped(card.id)
+                  ? isSolved(card.id)
+                    ? "bg-green-500 text-white"
+                    : "bg-blue-500 text-white"
+                  : "bg-gray-300 text-gray-400"
+              }`}
+            >
+              {isFlipped(card.id) ? card.number : "?"}
+            </div>
+          );
+        })}
       </div>
 
-      {/* Game Stats */}
-      <div className="mt-4">
-        <p>Moves: {moves}</p>
-      </div>
-
-      {/* Win Condition */}
+      {/* Result */}
       {won && (
-        <div className="mt-4 text-center">
-          <h2 className="text-2xl font-bold text-green-600">
-            Congratulations! You Won!
-          </h2>
-          <button 
-            onClick={() => resetGame()}
-            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Play Again
-          </button>
+        <div className="mt-4 text-4xl font-bold text-green-600 animate-bounce">
+          You Won!
         </div>
       )}
 
-      {/* Reset Button */}
-      {!won && (
-        <button 
-          onClick={() => resetGame()}
-          className="mt-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-        >
-          Reset Game
-        </button>
-      )}
+      {/* Reset / Play Again Btn */}
+      <button
+        onClick={initializeGame}
+        className="mt-4 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+      >
+        {won ? "Play Again" : "Reset"}
+      </button>
     </div>
   );
 };

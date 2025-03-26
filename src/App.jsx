@@ -1,13 +1,8 @@
-import React from 'react'
-import "./App.css"
-import MemoryGame from './components/memory-game'
+import "./App.css";
+import MemoryGame from "./components/memory-game";
 
-const App = () => {
-  return (
-    <div className="App">
-      <MemoryGame />
-    </div>
-  )
+function App() {
+  return <MemoryGame />;
 }
 
-export default App
+export default App;
